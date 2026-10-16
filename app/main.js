@@ -10,7 +10,7 @@ import nunjucks from "nunjucks";
 import { DEFAULT_EFFORT, DEFAULT_MODEL, EFFORTS, MODELS, effectiveSettings } from "./config.js";
 import { transaction, initDb, utcnow } from "./db.js";
 import { boardEvents, sseFormat, ticketLogBroadcaster } from "./events.js";
-import { pushTicket, runCommit } from "./git_ops.js";
+import { GitError, fileContents, pushTicket, runCommit, ticketChanges } from "./git_ops.js";
 import {
   EntryAuthor,
   EntryKind,
@@ -135,6 +135,9 @@ app.setErrorHandler((err, request, reply) => {
   if (err instanceof HttpError) {
     return reply.code(err.statusCode).send({ detail: err.detail });
   }
+  if (err instanceof GitError) {
+    return reply.code(500).send({ detail: err.message });
+  }
   if (err.validation) {
     // Same status as FastAPI for an invalid request body or path parameter.
     return reply.code(422).send({ detail: err.validation });
@@ -147,6 +150,12 @@ app.setErrorHandler((err, request, reply) => {
 });
 
 app.register(fastifyStatic, { root: path.join(APP_DIR, "static"), prefix: "/static/" });
+// Monaco is served from node_modules so the changes view works offline.
+app.register(fastifyStatic, {
+  root: path.join(APP_DIR, "..", "node_modules", "monaco-editor", "min", "vs"),
+  prefix: "/vendor/monaco/vs/",
+  decorateReply: false,
+});
 
 const ticketIdParams = {
   type: "object",
@@ -227,6 +236,15 @@ app.get("/tickets/:ticketId", { schema: { params: ticketIdParams } }, async (req
 app.get("/fragments/tickets/:ticketId", { schema: { params: ticketIdParams } }, async (request, reply) =>
   render(reply, "_ticket_fragment.html", ticketContext(request.params.ticketId))
 );
+
+app.get("/tickets/:ticketId/changes", { schema: { params: ticketIdParams } }, async (request, reply) => {
+  const ticket = requireTicket(request.params.ticketId);
+  return render(reply, "changes.html", {
+    ticket: ticketView(ticket),
+    project: getProject(ticket.project_id),
+    status_labels: STATUS_LABELS,
+  });
+});
 
 // ---------------------------------------------------------------------------
 // API — used by the kanban-ticket skill and the web UI
@@ -351,6 +369,41 @@ app.post("/api/tickets/:ticketId/push", { schema: { params: ticketIdParams } }, 
   const [ok, message] = await pushTicket(ticket.project_id, ticketId);
   return { ok, message };
 });
+
+async function changesFor(ticketId) {
+  const ticket = requireTicket(ticketId);
+  const changes = await ticketChanges(ticket, getProject(ticket.project_id).path);
+  return { ticket, changes };
+}
+
+app.get("/api/tickets/:ticketId/changes", { schema: { params: ticketIdParams } }, async (request) => {
+  const { ticket, changes } = await changesFor(request.params.ticketId);
+  return {
+    ticket_id: ticket.id,
+    status: ticket.status,
+    base: changes.base,
+    target: changes.target,
+    live: changes.live,
+    files: changes.files.map(({ path, old_path, status, additions, deletions }) => ({ path, old_path, status, additions, deletions })),
+  };
+});
+
+app.get(
+  "/api/tickets/:ticketId/changes/file",
+  {
+    schema: {
+      params: ticketIdParams,
+      querystring: { type: "object", properties: { path: { type: "string" } }, required: ["path"] },
+    },
+  },
+  async (request) => {
+    const { changes } = await changesFor(request.params.ticketId);
+    // Only paths the diff itself lists can be read: no way to reach any other file.
+    const file = changes.files.find((f) => f.path === request.query.path);
+    if (!file) throw new HttpError(404, "Fichier absent des changements de ce ticket");
+    return { path: file.path, old_path: file.old_path, status: file.status, ...(await fileContents(changes, file)) };
+  }
+);
 
 /** Streams a broadcaster's events to the client as Server-Sent Events. */
 function streamEvents(request, reply, broadcaster) {
