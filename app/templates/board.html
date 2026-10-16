@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Claude Kanban</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+  <link rel="stylesheet" href="/static/app.css?v=5" />
+</head>
+<body class="board-page first-load">
+  <div class="aurora" aria-hidden="true"><span></span><span></span><span></span></div>
+
+  <div class="page">
+    <header class="page-header">
+      <div class="brand">
+        <span class="logo" aria-hidden="true"></span>
+        <div>
+          <div class="eyebrow" data-greeting>Tableau local</div>
+          <h1>Claude Kanban</h1>
+        </div>
+      </div>
+    </header>
+
+    <div id="board" hx-get="/fragments/board" hx-trigger="load, refresh" hx-swap="innerHTML">
+      <div class="board-loading">Chargement…</div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Détail du ticket">
+      <div class="modal-close-bar">
+        <button class="btn-icon" id="modal-close-btn" aria-label="Fermer">✕</button>
+      </div>
+      <div class="modal-body" id="modal-body"></div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container" aria-live="polite"></div>
+
+  <script src="/static/app.js?v=5"></script>
+</body>
+</html>

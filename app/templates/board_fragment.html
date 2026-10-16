@@ -1,0 +1,64 @@
+{% set running = tickets_by_status[statuses[1]]|length %}
+{% set waiting = tickets_by_status[statuses[2]]|length %}
+{% set to_review = tickets_by_status[statuses[3]]|length + tickets_by_status[statuses[4]]|length %}
+<div class="pulse-bar" data-running="{{ running }}">
+  <span class="pulse-item{{ ' is-live' if running else '' }}">
+    <span class="pulse-dot"></span>
+    {% if running %}{{ running }} agent{{ 's' if running > 1 else '' }} au travail{% else %}Aucun agent actif{% endif %}
+  </span>
+  {% if waiting %}
+  <span class="pulse-item is-waiting"><span class="pulse-dot"></span>{{ waiting }} question{{ 's' if waiting > 1 else '' }} pour toi</span>
+  {% endif %}
+  {% if to_review %}
+  <span class="pulse-item is-review"><span class="pulse-dot"></span>{{ to_review }} à valider</span>
+  {% endif %}
+  <span class="pulse-item is-done"><span class="pulse-dot"></span>{{ tickets_by_status[statuses[5]]|length }} terminés</span>
+</div>
+
+<div class="columns">
+  {% for status in statuses %}
+  {% set tickets = tickets_by_status[status] %}
+  {% if status.value == "termine" %}
+    {% set shown = tickets|sort(attribute="updated_at", reverse=True) %}
+  {% else %}
+    {% set shown = tickets %}
+  {% endif %}
+  <section class="column"{{ ' data-collapsible' if status.value == "termine" else '' }} style="--c: var(--status-{{ status.value }}); --c-soft: var(--status-{{ status.value }}-soft)">
+    <header class="column-header">
+      <span class="column-icon column-icon-{{ status.value }}" aria-hidden="true"></span>
+      <h2 class="column-title" title="{{ status_labels[status] }}">{{ status_labels[status]|replace(" (question)", "") }}</h2>
+      <span class="count">{{ tickets|length }}</span>
+      {% if status.value == "termine" %}
+      <button type="button" class="column-toggle" data-column-toggle aria-expanded="true" aria-label="Replier la colonne Terminé">
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      {% endif %}
+    </header>
+    <ul class="card-list{{ ' empty' if not tickets else '' }}" data-status="{{ status.value }}">
+      {% for ticket in shown %}
+      <li class="card card-{{ status.value }}" data-id="{{ ticket.id }}" style="--i: {{ loop.index0 }}"
+          role="button" tabindex="0" aria-haspopup="dialog">
+        <div class="card-top">
+          <span class="card-project" data-project="{{ project_names.get(ticket.project_id, '?') }}">{{ project_names.get(ticket.project_id, "?") }}</span>
+          <span class="card-id">#{{ ticket.id }}</span>
+        </div>
+        <div class="card-title">{{ ticket.title }}</div>
+        {% if status.value == "en_cours" %}
+        <div class="card-state"><span class="typing"><i></i><i></i><i></i></span>Agent au travail</div>
+        {% elif status.value == "standby" %}
+        <div class="card-state">Attend ta réponse</div>
+        {% elif status.value == "a_valider" %}
+        <div class="card-state">Prêt à tester</div>
+        {% elif status.value == "a_committer" %}
+        <div class="card-state">{{ "Commit à relire" if ticket.commit_message else "Préparation du commit…" }}</div>
+        {% endif %}
+        <time class="card-time" data-ts="{{ ticket.updated_at.isoformat() }}"></time>
+      </li>
+      {% endfor %}
+    </ul>
+    {% if status.value == "termine" and tickets|length > 3 %}
+    <button type="button" class="column-more" data-more-btn></button>
+    {% endif %}
+  </section>
+  {% endfor %}
+</div>

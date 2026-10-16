@@ -1,0 +1,56 @@
+<div class="ticket-header" style="--c: var(--status-{{ ticket.status.value }}); --c-soft: var(--status-{{ ticket.status.value }}-soft)">
+  <div class="ticket-kicker">
+    <span class="badge">{{ status_labels[ticket.status] }}</span>
+    <span class="ticket-id">#{{ ticket.id }}</span>
+  </div>
+  <h2 class="ticket-title">{{ ticket.title }}</h2>
+  <p class="ticket-meta"><span class="card-project" data-project="{{ project.name }}">{{ project.name }}</span><code>{{ project.path }}</code></p>
+</div>
+
+{% if ticket.status.value == "standby" %}
+<div class="section-title">Répondre à l'agent</div>
+<form data-answer-form>
+  <div class="field">
+    <label for="answer-message-{{ ticket.id }}">Ta réponse</label>
+    <textarea id="answer-message-{{ ticket.id }}" name="message" rows="4" required></textarea>
+  </div>
+  <button type="submit" class="btn btn-primary">Envoyer et reprendre</button>
+</form>
+{% endif %}
+
+{% if ticket.status.value == "a_valider" %}
+<p class="hint">
+  Pour rejeter ce ticket après test : ouvre une nouvelle session Claude Desktop dans
+  <code>{{ project.path }}</code> et explique ce qui ne va pas — le ticket repassera en
+  "à faire" avec tout l'historique conservé. Sinon, glisse la carte vers "À committer" sur le board.
+</p>
+{% endif %}
+
+{% if ticket.status.value == "a_committer" %}
+  {% if ticket.error_message %}
+  <div class="error-box">{{ ticket.error_message }}</div>
+  {% else %}
+  <div class="commit-box">
+    <pre>{{ ticket.commit_message or "En cours…" }}</pre>
+    {% if ticket.commit_message %}
+    <button class="btn btn-primary" data-push-btn>Valider et pousser</button>
+    {% endif %}
+  </div>
+  {% endif %}
+{% endif %}
+
+<div class="section-title">Journal</div>
+{% set kind_labels = {"plan_initial": "Plan", "execution_summary": "Résumé", "question": "Question", "answer": "Réponse", "rejection": "Retour", "commit_info": "Commit", "error": "Erreur"} %}
+<div class="journal">
+  {% for entry in entries %}
+  <div class="entry entry-author-{{ entry.author.value }} entry-kind-{{ entry.kind.value }}">
+    <div class="entry-meta">
+      <span>{{ kind_labels.get(entry.kind.value, entry.kind.value) }}</span>·<span>{{ "toi" if entry.author.value == "user" else "agent" }}</span>·<time data-ts="{{ entry.created_at.isoformat() }}">{{ entry.created_at.strftime("%Y-%m-%d %H:%M") }}</time>
+    </div>
+    <pre>{{ entry.content }}</pre>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="section-title">Logs <span class="live-tag">live</span></div>
+<pre class="logs" data-live-logs></pre>
