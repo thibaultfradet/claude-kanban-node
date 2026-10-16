@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Changements — #{{ ticket.id }} {{ ticket.title }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/app.css?v=7" />
+</head>
+<body class="changes-page">
+  <header class="changes-header" data-changes-root data-ticket-id="{{ ticket.id }}" data-status-labels="{{ status_labels | dump }}">
+    <a href="/?ticket={{ ticket.id }}" class="btn-icon" aria-label="Retour au ticket" title="Retour au ticket">←</a>
+    <div class="changes-heading">
+      <h1 class="changes-title"><span class="ticket-id">#{{ ticket.id }}</span> {{ ticket.title }}</h1>
+      <div class="changes-meta">
+        <span class="badge" data-status-badge style="--c: var(--status-{{ ticket.status.value }}); --c-soft: var(--status-{{ ticket.status.value }}-soft)">{{ status_labels[ticket.status] }}</span>
+        <span class="card-project" data-project="{{ project.name }}">{{ project.name }}</span>
+        <span class="changes-range" data-range></span>
+        <span class="changes-live" data-live hidden>● live</span>
+      </div>
+    </div>
+    <div class="view-toggle" role="group" aria-label="Mode d'affichage du diff">
+      <button type="button" data-view="side" aria-pressed="true">Côte à côte</button>
+      <button type="button" data-view="inline" aria-pressed="false">Inline</button>
+    </div>
+  </header>
+
+  <main class="changes-main">
+    <aside class="changes-sidebar" data-sidebar>
+      <div class="changes-sidebar-title">
+        Changements <span class="count" data-file-count>0</span>
+      </div>
+      <ul class="file-list" data-file-list role="listbox" aria-label="Fichiers modifiés" tabindex="0"></ul>
+      <div class="changes-empty" data-list-empty hidden></div>
+    </aside>
+    <div class="changes-resizer" data-resizer role="separator" aria-orientation="vertical" aria-label="Redimensionner le panneau"></div>
+    <section class="changes-editor-pane">
+      <div class="changes-file-bar" data-file-bar hidden></div>
+      <div class="changes-editor" data-editor></div>
+      <div class="changes-empty changes-placeholder" data-placeholder>Chargement…</div>
+    </section>
+  </main>
+
+  <div class="toast-container" id="toast-container" aria-live="polite"></div>
+
+  <script src="/static/app.js?v=7"></script>
+  <script>
+    window.KanbanDecor.apply(document.body);
+  </script>
+  <script src="/vendor/monaco/vs/loader.js"></script>
+  <script src="/static/changes.js?v=7"></script>
+</body>
+</html>
