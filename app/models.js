@@ -72,13 +72,13 @@ export function ticketsWithStatus(status) {
   return db.prepare("SELECT * FROM ticket WHERE status = ?").all(status);
 }
 
-export function insertTicket({ project_id, title, status = TicketStatus.a_faire }) {
+export function insertTicket({ project_id, title, status = TicketStatus.a_faire, model = null, effort = null }) {
   const now = utcnow();
   const res = db
     .prepare(
-      "INSERT INTO ticket (project_id, title, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
+      "INSERT INTO ticket (project_id, title, status, model, effort, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
     )
-    .run(project_id, title, status, now, now);
+    .run(project_id, title, status, model, effort, now, now);
   return getTicket(Number(res.lastInsertRowid));
 }
 
@@ -90,6 +90,8 @@ const TICKET_COLUMNS = new Set([
   "commit_sha",
   "commit_message",
   "error_message",
+  "model",
+  "effort",
   "updated_at",
 ]);
 

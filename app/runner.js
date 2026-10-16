@@ -5,6 +5,7 @@ import path from "node:path";
 import readline from "node:readline";
 
 import { resolveClaudeCommand } from "./claude_bin.js";
+import { DEFAULT_EFFORT, DEFAULT_MODEL, effectiveSettings } from "./config.js";
 import { LOGS_DIR, transaction, utcnow } from "./db.js";
 import { boardEvents, ticketLogBroadcaster } from "./events.js";
 import {
@@ -20,9 +21,6 @@ import {
 import { buildMessage, notify } from "./notify.js";
 import { isoformat } from "./timefmt.js";
 
-// Opus is the CLI default and noticeably more expensive for routine tickets; sonnet
-// is a saner default for unattended runs. Override with KANBAN_MODEL if needed.
-const MODEL = process.env.KANBAN_MODEL ?? "sonnet";
 export const DEFAULT_TIMEOUT_SECONDS = Number.parseInt(process.env.KANBAN_TICKET_TIMEOUT ?? "1800", 10);
 
 // These tools assume a human is present to answer; none is, in a headless run.
@@ -135,6 +133,8 @@ export async function runClaudeHeadless({
   cwd,
   prompt,
   sessionFlag,
+  model = DEFAULT_MODEL,
+  effort = DEFAULT_EFFORT,
   appendSystemPrompt = null,
   disallowedTools = null,
   timeoutSeconds = DEFAULT_TIMEOUT_SECONDS,
@@ -159,7 +159,9 @@ export async function runClaudeHeadless({
     "--permission-mode",
     "bypassPermissions",
   ];
-  if (MODEL) args.push("--model", MODEL);
+  // --model and --effort go before the variadic flags below, which would swallow them.
+  if (model) args.push("--model", model);
+  if (effort) args.push("--effort", effort);
   if (appendSystemPrompt) args.push("--append-system-prompt", appendSystemPrompt);
   if (disallowedTools) args.push("--disallowedTools", disallowedTools);
 
@@ -357,7 +359,7 @@ export function applyResult(ticketId, run) {
 }
 
 export async function executeTicketStart(projectId, ticketId) {
-  const { prompt, newSessionId, projectPath } = transaction(() => {
+  const { prompt, newSessionId, projectPath, model, effort } = transaction(() => {
     const project = getProject(projectId);
     const ticket = getTicket(ticketId);
     const prompt = buildTicketPrompt(entriesFor(ticketId));
@@ -365,7 +367,8 @@ export async function executeTicketStart(projectId, ticketId) {
     const fields = { session_id: newSessionId };
     if (!ticket.head_sha_at_start) fields.head_sha_at_start = gitHeadSha(project.path);
     updateTicket(ticketId, fields);
-    return { prompt, newSessionId, projectPath: project.path };
+    const { effective_model, effective_effort } = effectiveSettings(getTicket(ticketId));
+    return { prompt, newSessionId, projectPath: project.path, model: effective_model, effort: effective_effort };
   });
 
   let run;
@@ -375,6 +378,8 @@ export async function executeTicketStart(projectId, ticketId) {
       cwd: projectPath,
       prompt,
       sessionFlag: ["--session-id", newSessionId],
+      model,
+      effort,
       appendSystemPrompt: KANBAN_SYSTEM_PROMPT,
       disallowedTools: DISALLOWED_TOOLS,
       logSubdir: "start",
@@ -389,6 +394,7 @@ export async function executeTicketStart(projectId, ticketId) {
 export async function executeTicketResume(ticketId, answerText) {
   const ticket = getTicket(ticketId);
   const project = getProject(ticket.project_id);
+  const { effective_model, effective_effort } = effectiveSettings(ticket);
 
   let run;
   try {
@@ -397,6 +403,8 @@ export async function executeTicketResume(ticketId, answerText) {
       cwd: project.path,
       prompt: answerText,
       sessionFlag: ["--resume", ticket.session_id],
+      model: effective_model,
+      effort: effective_effort,
       appendSystemPrompt: KANBAN_SYSTEM_PROMPT,
       disallowedTools: DISALLOWED_TOOLS,
       logSubdir: "resume",

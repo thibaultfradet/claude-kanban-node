@@ -58,6 +58,11 @@ db.exec("PRAGMA busy_timeout = 5000");
 
 export function initDb() {
   db.exec(SCHEMA);
+  // Idempotent migration: a db created by either version, with or without the columns.
+  const columns = new Set(db.prepare("PRAGMA table_info(ticket)").all().map((c) => c.name));
+  for (const column of ["model", "effort"]) {
+    if (!columns.has(column)) db.exec(`ALTER TABLE ticket ADD COLUMN ${column} TEXT`);
+  }
 }
 
 let lastNow = "";

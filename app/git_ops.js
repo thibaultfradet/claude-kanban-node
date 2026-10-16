@@ -8,6 +8,7 @@ import { BASE_DIR, transaction, utcnow } from "./db.js";
 import { boardEvents } from "./events.js";
 import { EntryAuthor, EntryKind, TicketStatus, getProject, getTicket, insertEntry, updateTicket } from "./models.js";
 import { buildMessage, notify } from "./notify.js";
+import { COMMIT_EFFORT, COMMIT_MODEL } from "./config.js";
 import { gitHeadSha, runClaudeHeadless } from "./runner.js";
 
 const COMMIT_SKILL_PATH = path.join(os.homedir(), ".claude", "commands", "commit.md");
@@ -56,6 +57,8 @@ export async function runCommit(projectId, ticketId) {
       cwd: projectPath,
       prompt,
       sessionFlag: ["--session-id", randomUUID()],
+      model: COMMIT_MODEL,
+      effort: COMMIT_EFFORT,
       disallowedTools: "AskUserQuestion,EnterPlanMode,ExitPlanMode",
       logSubdir: "commit",
     });
