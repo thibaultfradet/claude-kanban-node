@@ -118,6 +118,20 @@ Invoke-RestMethod -Method Post http://127.0.0.1:8787/api/tickets -ContentType "a
   -Body (@{ project_name = "my-app"; project_path = "C:\dev\my-app"; title = "Add dark mode"; plan = "..." } | ConvertTo-Json)
 ```
 
+## Model & effort per ticket
+
+Each ticket can pick its own Claude model (`opus`, `sonnet`, `haiku`, `fable`) and effort (`low`, `medium`, `high`, `xhigh`, `max`). Left unset, it uses `KANBAN_MODEL` / `KANBAN_EFFORT` (`opus` / `high`); the default is never stored, so changing it applies to existing tickets too. The commit pass always uses `KANBAN_COMMIT_MODEL` / `KANBAN_COMMIT_EFFORT`.
+
+Set them in the ticket page ("Modèle" / "Effort" selects), when creating a ticket (`model` and `effort` are optional fields of `POST /api/tickets`), or with `/kanban-ticket`, which proposes a pair based on the plan's complexity. Cards show the effective pair as a small badge, dimmed when it is the default.
+
+```bash
+curl -X PATCH http://127.0.0.1:8787/api/tickets/42/settings \
+  -H "Content-Type: application/json" \
+  -d '{"model": "sonnet", "effort": "medium"}'
+```
+
+An omitted field stays unchanged, `null` resets it to the default. The response is `{"ticket_id", "model", "effort", "effective_model", "effective_effort"}`. Invalid values return 422; the call returns 409 while the ticket is *In progress* (and for *To commit* / *Done*), and otherwise applies to the next run or resume.
+
 ## Auto-ship
 
 `scripts/auto_ship.js` is an optional loop that runs next to the board: it moves every ticket in *To review* to *To commit*, waits for the commit pass, then pushes. Failures are logged and left for you to handle.
@@ -134,7 +148,10 @@ Set these environment variables before starting the board:
 | Variable | Default | Purpose |
 |---|---|---|
 | `KANBAN_PORT` | `8787` | Port the board listens on (always on `127.0.0.1`) |
-| `KANBAN_MODEL` | `sonnet` | Model used for ticket runs |
+| `KANBAN_MODEL` | `opus` | Default model for ticket runs (start and resume) |
+| `KANBAN_EFFORT` | `high` | Default effort for ticket runs |
+| `KANBAN_COMMIT_MODEL` | `sonnet` | Model of the automatic commit pass ("To commit") |
+| `KANBAN_COMMIT_EFFORT` | `low` | Effort of the automatic commit pass |
 | `KANBAN_TICKET_TIMEOUT` | `1800` | Max duration of a single run, in seconds |
 | `KANBAN_POLL_INTERVAL` | `20` | How often the scheduler looks for new tickets, in seconds |
 | `KANBAN_CLAUDE_BIN` | `claude` from the `PATH` | Path to the Claude Code binary |

@@ -14,6 +14,7 @@ Never silently guess the project. Explicitly confirm with the user:
 
 If the user refers to a ticket that already exists (a ticket number, "that didn't
 work", "fix X on the previous ticket instead"), this is **feedback**: go to Step 5.
+If they only want to change the model/effort of an existing ticket, go to Step 6.
 Otherwise it is a **new ticket**: continue to Step 3.
 
 ## Step 3: Analyze and clarify (new ticket)
@@ -26,6 +27,18 @@ Otherwise it is a **new ticket**: continue to Step 3.
 - Then write a complete, detailed plan (this is the ticket body): context, goal,
   files involved, constraints, definition of done
 
+## Step 3b: Propose a model and effort
+
+After writing the plan and **before** creating the ticket, propose a model/effort
+pair suited to the complexity, with a one-line justification:
+
+- small mechanical change → `sonnet` / `medium`
+- standard case → `opus` / `high` (the board default)
+- large or delicate refactor → `opus` / `xhigh`
+
+Allowed models: `opus`, `sonnet`, `haiku`, `fable`. Allowed efforts: `low`, `medium`,
+`high`, `xhigh`, `max`. Let the user accept or change the proposal before going on.
+
 ## Step 4: Create the ticket
 
 Write the JSON payload to a temporary file (to avoid any shell escaping issues),
@@ -36,9 +49,13 @@ for example `/tmp/kanban_ticket.json`:
   "project_name": "<project name>",
   "project_path": "<absolute path>",
   "title": "<short ticket title>",
-  "plan": "<full plan in markdown>"
+  "plan": "<full plan in markdown>",
+  "model": "<opus|sonnet|haiku|fable>",
+  "effort": "<low|medium|high|xhigh|max>"
 }
 ```
+
+Omit `model` and `effort` to keep the board default (`opus` / `high`).
 
 Then:
 
@@ -69,6 +86,20 @@ curl -s -X POST http://127.0.0.1:8787/api/tickets/<id>/feedback \
 
 This feedback is appended to the ticket's full history (nothing is ever overwritten)
 and the ticket goes back to "To do", to be reprocessed with all that context.
+
+## Step 6: Change the model/effort of an existing ticket
+
+Ask for the ticket number and the new values. Not allowed while the ticket is "In
+progress", "To commit" or "Done" (HTTP 409); otherwise it applies to the next run or
+resume.
+
+```bash
+curl -s -X PATCH http://127.0.0.1:8787/api/tickets/<id>/settings \
+  -H "Content-Type: application/json" \
+  -d '{"model": "sonnet", "effort": "medium"}'
+```
+
+An omitted field is left unchanged; `null` goes back to the default.
 
 ## Notes
 
