@@ -31,7 +31,7 @@ Each project handles one ticket at a time, so agents never step on each other's 
 - [Claude Code](https://docs.claude.com/en/docs/claude-code) installed and logged in (`claude auth login`)
 - Git, with the projects you want to work on already cloned locally
 
-The only npm dependencies are Fastify, `@fastify/static` and Nunjucks, all pure JavaScript. The database uses Node's built-in `node:sqlite` module.
+The only npm dependencies are Fastify, `@fastify/static`, Nunjucks and `monaco-editor` (served locally for the changes view), all pure JavaScript. The database uses Node's built-in `node:sqlite` module.
 
 ## Getting started on Windows
 
@@ -131,6 +131,22 @@ curl -X PATCH http://127.0.0.1:8787/api/tickets/42/settings \
 ```
 
 An omitted field stays unchanged, `null` resets it to the default. The response is `{"ticket_id", "model", "effort", "effective_model", "effective_effort"}`. Invalid values return 422; the call returns 409 while the ticket is *In progress* (and for *To commit* / *Done*), and otherwise applies to the next run or resume.
+
+## Changes view
+
+Every started ticket has a read-only, VS Code-style *Source Control* page at `/tickets/{id}/changes`, opened from the **Voir les changements** button on the ticket or the small branch icon on its card. It lists the changed files (status letter, `+added −deleted`) and shows the selected one in a Monaco diff editor, side by side or inline.
+
+The diff covers everything the ticket changed since it started, from `head_sha_at_start`:
+
+- while the ticket is active (*In progress*, *Stand by*, *To review*, *To commit*), against the current working tree: the agent's commits plus staged, unstaged and untracked files. The page refreshes every 3 seconds while the agent runs;
+- once it is *Done*, against `commit_sha` (or `HEAD`), so the diff is frozen.
+
+Git is only read (`diff`, `ls-files`, `show`): the index, the stash and the working tree are never touched. Binary files and files over 1 MB are listed without a preview.
+
+- `GET /api/tickets/{id}/changes` → `{"ticket_id", "status", "base", "target", "live", "files": [{"path", "old_path", "status", "additions", "deletions"}]}`. `target` is a commit SHA or `"WORKTREE"`; `status` is `A`, `M`, `D` or `R`.
+- `GET /api/tickets/{id}/changes/file?path=<path>` → `{"path", "old_path", "status", "original", "modified", "binary", "too_large"}`. Only paths listed by `/changes` can be read (404 otherwise); a git failure returns 500 with its message.
+
+Monaco is served from `node_modules` at `/vendor/monaco/vs`, so the page works offline.
 
 ## Auto-ship
 
