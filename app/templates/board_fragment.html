@@ -40,7 +40,14 @@
           role="button" tabindex="0" aria-haspopup="dialog">
         <div class="card-top">
           <span class="card-project" data-project="{{ project_names.get(ticket.project_id, '?') }}">{{ project_names.get(ticket.project_id, "?") }}</span>
-          <span class="card-id">#{{ ticket.id }}</span>
+          <span class="card-top-end">
+            {% if ticket.head_sha_at_start %}
+            <a class="card-changes" href="/tickets/{{ ticket.id }}/changes" data-card-changes title="Voir les changements" aria-label="Voir les changements du ticket #{{ ticket.id }}">
+              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="4.5" cy="3.5" r="1.75"/><circle cx="4.5" cy="12.5" r="1.75"/><circle cx="11.5" cy="5.5" r="1.75"/><path d="M4.5 5.25v5.5M11.5 7.25c0 2.5-3.5 2-6.4 4"/></g></svg>
+            </a>
+            {% endif %}
+            <span class="card-id">#{{ ticket.id }}</span>
+          </span>
         </div>
         <div class="card-title">{{ ticket.title }}</div>
         {% if status.value == "en_cours" %}

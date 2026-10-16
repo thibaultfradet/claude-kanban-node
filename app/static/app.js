@@ -275,6 +275,15 @@ window.KanbanTicket = (function () {
   });
 
   function bindCardClicks() {
+    // The "changes" icon is a plain link: it must not also open the ticket modal.
+    document.querySelectorAll("[data-card-changes]").forEach(function (link) {
+      link.addEventListener("click", function (e) {
+        e.stopPropagation();
+      });
+      link.addEventListener("keydown", function (e) {
+        e.stopPropagation();
+      });
+    });
     document.querySelectorAll(".card[data-id]").forEach(function (card) {
       card.addEventListener("click", function () {
         openModal(card.dataset.id);
