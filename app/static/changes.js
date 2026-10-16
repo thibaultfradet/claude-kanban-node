@@ -60,6 +60,18 @@
     return darkScheme.matches ? "vs-dark" : "vs";
   }
 
+  // Monaco's default blob worker can't resolve the root-relative "vs" path:
+  // bootstrap the workers with absolute, same-origin URLs instead.
+  window.MonacoEnvironment = {
+    getWorkerUrl: function () {
+      var vs = location.origin + "/vendor/monaco/vs";
+      var source =
+        "self.MonacoEnvironment = { baseUrl: '" + location.origin + "/vendor/monaco/' };" +
+        "importScripts('" + vs + "/base/worker/workerMain.js');";
+      return "data:text/javascript;charset=utf-8," + encodeURIComponent(source);
+    },
+  };
+
   var monacoReady = new Promise(function (resolve, reject) {
     window.require.config({ paths: { vs: "/vendor/monaco/vs" } });
     window.require(["vs/editor/editor.main"], function () {
