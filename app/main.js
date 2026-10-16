@@ -7,6 +7,7 @@ import fastifyStatic from "@fastify/static";
 import Fastify from "fastify";
 import nunjucks from "nunjucks";
 
+import { DEFAULT_EFFORT, DEFAULT_MODEL, EFFORTS, MODELS, effectiveSettings } from "./config.js";
 import { transaction, initDb, utcnow } from "./db.js";
 import { boardEvents, sseFormat, ticketLogBroadcaster } from "./events.js";
 import { pushTicket, runCommit } from "./git_ops.js";
@@ -78,6 +79,8 @@ class EnumValue {
 function ticketView(row) {
   return {
     ...row,
+    ...effectiveSettings(row),
+    is_custom_settings: row.model != null || row.effort != null,
     status: new EnumValue(row.status),
     created_at: new PyDateTime(row.created_at),
     updated_at: new PyDateTime(row.updated_at),
@@ -159,6 +162,14 @@ function bodySchema(fields) {
   };
 }
 
+/** Adds the optional, nullable model/effort fields to a body schema. */
+function optionalSettingsSchema(schema) {
+  return {
+    ...schema,
+    properties: { ...schema.properties, model: { type: ["string", "null"] }, effort: { type: ["string", "null"] } },
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Pages
 // ---------------------------------------------------------------------------
@@ -192,7 +203,21 @@ function ticketContext(ticketId) {
     project: getProject(ticket.project_id),
     entries: entriesFor(ticketId).map(entryView),
     status_labels: STATUS_LABELS,
+    models: MODELS,
+    efforts: EFFORTS,
+    default_model: DEFAULT_MODEL,
+    default_effort: DEFAULT_EFFORT,
+    settings_editable: [TicketStatus.a_faire, TicketStatus.standby, TicketStatus.a_valider].includes(ticket.status),
   };
+}
+
+/** Validates an optional model/effort value; null/undefined means "default". */
+function checkChoice(value, allowed, label) {
+  if (value == null) return null;
+  if (!allowed.includes(value)) {
+    throw new HttpError(422, `${label} invalide : « ${value} ». Valeurs autorisées : ${allowed.join(", ")}`);
+  }
+  return value;
 }
 
 app.get("/tickets/:ticketId", { schema: { params: ticketIdParams } }, async (request, reply) =>
@@ -209,20 +234,48 @@ app.get("/fragments/tickets/:ticketId", { schema: { params: ticketIdParams } }, 
 
 app.post(
   "/api/tickets",
-  { schema: { body: bodySchema(["project_name", "project_path", "title", "plan"]) } },
+  { schema: { body: optionalSettingsSchema(bodySchema(["project_name", "project_path", "title", "plan"])) } },
   async (request) => {
     const body = request.body;
+    const model = checkChoice(body.model, MODELS, "Modèle");
+    const effort = checkChoice(body.effort, EFFORTS, "Effort");
     const projectPath = resolveProjectPath(body.project_path);
 
     const { ticketId, projectId } = transaction(() => {
       const project = findProjectByPath(projectPath) ?? insertProject({ name: body.project_name, path: projectPath });
-      const ticket = insertTicket({ project_id: project.id, title: body.title, status: TicketStatus.a_faire });
+      const ticket = insertTicket({ project_id: project.id, title: body.title, status: TicketStatus.a_faire, model, effort });
       insertEntry({ ticket_id: ticket.id, kind: EntryKind.plan_initial, author: EntryAuthor.user, content: body.plan });
       return { ticketId: ticket.id, projectId: project.id };
     });
 
     boardEvents.publish({ ticket_id: ticketId, project_id: projectId, status: TicketStatus.a_faire });
     return { ticket_id: ticketId, project_id: projectId };
+  }
+);
+
+app.patch(
+  "/api/tickets/:ticketId/settings",
+  { schema: { params: ticketIdParams, body: optionalSettingsSchema({ type: "object", properties: {} }) } },
+  async (request) => {
+    const { ticketId } = request.params;
+    const body = request.body;
+    const fields = {};
+    if ("model" in body) fields.model = checkChoice(body.model, MODELS, "Modèle");
+    if ("effort" in body) fields.effort = checkChoice(body.effort, EFFORTS, "Effort");
+
+    const ticket = transaction(() => {
+      const current = requireTicket(ticketId);
+      if (current.status === TicketStatus.en_cours) {
+        throw new HttpError(409, "Impossible de modifier le modèle pendant l'exécution");
+      }
+      if (current.status === TicketStatus.a_committer || current.status === TicketStatus.termine) {
+        throw new HttpError(409, "Impossible de modifier le modèle : le ticket n'est plus modifiable");
+      }
+      return updateTicket(ticketId, fields);
+    });
+
+    boardEvents.publish({ ticket_id: ticketId, project_id: ticket.project_id, status: ticket.status });
+    return { ticket_id: ticketId, model: ticket.model, effort: ticket.effort, ...effectiveSettings(ticket) };
   }
 );
 

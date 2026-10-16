@@ -7,6 +7,24 @@
   <p class="ticket-meta"><span class="card-project" data-project="{{ project.name }}">{{ project.name }}</span><code>{{ project.path }}</code></p>
 </div>
 
+<div class="settings-row">
+  {% set tip = "" if settings_editable else "Modification impossible dans ce statut" %}
+  <div class="field">
+    <label for="setting-model-{{ ticket.id }}">Modèle</label>
+    <select id="setting-model-{{ ticket.id }}" data-setting="model" {{ "" if settings_editable else "disabled" }} title="{{ tip }}">
+      <option value="">Défaut ({{ default_model }})</option>
+      {% for m in models %}<option value="{{ m }}"{{ " selected" if ticket.model == m else "" }}>{{ m }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="setting-effort-{{ ticket.id }}">Effort</label>
+    <select id="setting-effort-{{ ticket.id }}" data-setting="effort" {{ "" if settings_editable else "disabled" }} title="{{ tip }}">
+      <option value="">Défaut ({{ default_effort }})</option>
+      {% for e in efforts %}<option value="{{ e }}"{{ " selected" if ticket.effort == e else "" }}>{{ e }}</option>{% endfor %}
+    </select>
+  </div>
+</div>
+
 {% if ticket.status.value == "standby" %}
 <div class="section-title">Répondre à l'agent</div>
 <form data-answer-form>

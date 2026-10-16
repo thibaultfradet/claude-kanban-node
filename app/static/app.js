@@ -74,6 +74,34 @@ window.KanbanTicket = (function () {
       activeStreams[ticketId] = evtSource;
     }
 
+    container.querySelectorAll("[data-setting]").forEach(function (select) {
+      select.addEventListener("change", function () {
+        var body = {};
+        body[select.dataset.setting] = select.value || null;
+        select.disabled = true;
+        fetch("/api/tickets/" + ticketId + "/settings", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        })
+          .then(function (r) {
+            return r.json().then(function (data) {
+              if (!r.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Valeur refusée.");
+              return data;
+            });
+          })
+          .then(function (data) {
+            toast("Réglages enregistrés : " + data.effective_model + " · " + data.effective_effort, "success");
+            select.disabled = false;
+            if (window.refreshBoardSoon) window.refreshBoardSoon();
+          })
+          .catch(function (err) {
+            toast(err.message || "Échec de l'enregistrement.", "error");
+            return load(container, ticketId);
+          });
+      });
+    });
+
     var answerForm = container.querySelector("[data-answer-form]");
     if (answerForm) {
       answerForm.addEventListener("submit", function (e) {

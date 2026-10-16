@@ -792,7 +792,8 @@ label {
 }
 
 input[type="text"],
-textarea {
+textarea,
+select {
   width: 100%;
   padding: 11px 13px;
   border-radius: 12px;
@@ -806,7 +807,8 @@ textarea {
 }
 
 input:focus,
-textarea:focus {
+textarea:focus,
+select:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 4px rgba(91, 91, 246, 0.15);
@@ -1212,4 +1214,45 @@ pre {
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* ---------- model / effort ---------- */
+
+.card-model {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  opacity: 0.75;
+}
+
+.card-model.is-custom {
+  opacity: 1;
+  font-weight: 600;
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.settings-row {
+  display: flex;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.settings-row .field {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.settings-row select {
+  width: 100%;
+}
+
+.settings-row select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
