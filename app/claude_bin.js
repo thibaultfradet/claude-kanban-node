@@ -40,7 +40,10 @@ function findOnPath(name) {
  */
 function unwrapCmdShim(shimPath) {
   const text = fs.readFileSync(shimPath, "utf8");
-  const match = text.match(/"%~?dp0%?\\([^"]+?\.(?:js|cjs|mjs|exe))"/i);
+  // The last quoted %dp0% path is the program; npm shims first test for a
+  // bundled node.exe, which must not be mistaken for it.
+  const matches = [...text.matchAll(/"%~?dp0%?\\([^"]+?\.(?:js|cjs|mjs|exe))"/gi)];
+  const match = matches.at(-1);
   if (!match) {
     throw new Error(
       `Impossible de lancer ${shimPath} sans shell. ` +

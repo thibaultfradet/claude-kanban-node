@@ -163,6 +163,9 @@ export async function runClaudeHeadless({
   if (appendSystemPrompt) args.push("--append-system-prompt", appendSystemPrompt);
   if (disallowedTools) args.push("--disallowedTools", disallowedTools);
 
+  // spawn reports a missing cwd as a missing binary; say what is really wrong.
+  if (!fs.existsSync(cwd)) throw new Error(`Dossier introuvable : ${cwd}`);
+
   const broadcaster = ticketLogBroadcaster(ticketId);
   const { command, prefixArgs } = resolveClaudeCommand();
 
